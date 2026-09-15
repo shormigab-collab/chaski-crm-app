@@ -1,0 +1,101 @@
+// Chaski CRM: producto independiente del marketplace de usechaski.com.
+// Multi-tenant desde el dia 1 (cada "Organizacion" es una cuenta separada
+// con sus propios contactos/empresas/tareas), pensado para que a futuro
+// otras personas/negocios puedan crear su propia cuenta, no solo el
+// equipo de Chaski.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organizacion {
+  id        String   @id @default(cuid())
+  nombre    String
+  createdAt DateTime @default(now())
+
+  usuarios  Usuario[]
+  empresas  Empresa[]
+  contactos Contacto[]
+}
+
+model Usuario {
+  id             String       @id @default(cuid())
+  organizacionId String
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  nombre         String
+  email          String       @unique
+  passwordHash   String
+  // "OWNER" (creo la cuenta, puede invitar gente) | "MIEMBRO"
+  role           String       @default("OWNER")
+  createdAt      DateTime     @default(now())
+
+  resetToken         String?   @unique
+  resetTokenExpiraEn DateTime?
+
+  contactosPropios Contacto[]
+  actividades      Actividad[]
+}
+
+model Empresa {
+  id             String       @id @default(cuid())
+  organizacionId String
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  nombre         String
+  sitioWeb       String?
+  notas          String?
+  createdAt      DateTime     @default(now())
+
+  contactos Contacto[]
+}
+
+model Contacto {
+  id             String       @id @default(cuid())
+  organizacionId String
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  nombre         String
+  email          String?
+  telefono       String?
+  empresaId      String?
+  empresa        Empresa?     @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+
+  // "NUEVO" | "CONTACTADO" | "NEGOCIANDO" | "GANADO" | "PERDIDO"
+  etapa  String  @default("NUEVO")
+  origen String?
+  notas  String?
+
+  propietarioId String?
+  propietario   Usuario? @relation(fields: [propietarioId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tareas      Tarea[]
+  actividades Actividad[]
+}
+
+model Tarea {
+  id          String   @id @default(cuid())
+  contactoId  String
+  contacto    Contacto @relation(fields: [contactoId], references: [id], onDelete: Cascade)
+  titulo      String
+  fechaLimite DateTime?
+  completada  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Actividad {
+  id         String   @id @default(cuid())
+  contactoId String
+  contacto   Contacto @relation(fields: [contactoId], references: [id], onDelete: Cascade)
+  // "NOTA" | "LLAMADA" | "CORREO" | "REUNION"
+  tipo       String
+  contenido  String
+  autorId    String?
+  autor      Usuario? @relation(fields: [autorId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+}
